@@ -90,6 +90,7 @@ protected:
   // KeyState overrides
   void getKeyMap(deskflow::KeyMap &keyMap) override;
   void fakeKey(const Keystroke &keystroke) override;
+  bool useServerButtonForFakeKey(KeyID id) const override;
 
 private:
   class KeyResource;

@@ -394,6 +394,18 @@ bool OSXKeyState::fakeCtrlAltDel()
   return false;
 }
 
+bool OSXKeyState::useServerButtonForFakeKey(KeyID id) const
+{
+  // limit to printable ASCII, where the US/JIS symbol arrangement differs and
+  // this fix is needed.  special/modifier keys use the fixed virtual-key map,
+  // and dead/composed keys (outside this range) must go through the key map.
+  if (id < 0x20 || id > 0x7e) {
+    return false;
+  }
+  // only when language sync is off, i.e. the client keeps its own hardware.
+  return !isLangSyncEnabled();
+}
+
 bool OSXKeyState::fakeMediaKey(KeyID id)
 {
   return fakeNativeMediaKey(id);

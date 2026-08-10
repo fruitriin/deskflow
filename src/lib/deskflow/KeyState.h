@@ -119,6 +119,26 @@ protected:
   */
   virtual bool isIgnoredKey(KeyID key, KeyModifierMask mask) const;
 
+  //! Whether to fake a key using the server's physical button
+  /*!
+  Returns \c true if key \p id should be synthesized using the server's
+  physical button instead of the button derived from the local key map.
+  The default returns \c false.  A platform may override this when the local
+  key map cannot represent the physical arrangement (e.g. a macOS input
+  method active with no matching keyboard layout enabled).
+  */
+  virtual bool useServerButtonForFakeKey(KeyID id) const;
+
+  //! Whether server keyboard-language sync is enabled
+  /*!
+  Returns \c true if the client synchronizes its keyboard layout with the
+  server's declared language, \c false if it keeps its own layout.
+  */
+  bool isLangSyncEnabled() const
+  {
+    return m_isLangSyncEnabled;
+  }
+
   //! Get button for a KeyID
   /*!
   Return the button mapped to key \p id in group \p group if any,

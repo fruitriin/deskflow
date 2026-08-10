@@ -810,8 +810,28 @@ void KeyState::fakeKeyDown(KeyID id, KeyModifierMask mask, KeyButton serverID, c
 
   Keystrokes keys;
   ModifierToKeys oldActiveModifiers = m_activeModifiers;
+  const int32_t group = pollActiveGroup();
+
+  // when the local key map maps this character to a different physical button
+  // than the server pressed, press the server's physical button directly.  the
+  // map falls back to a US arrangement when no layout matches the hardware
+  // (e.g. a macOS input method active), which mistypes symbols.  modifiers come
+  // from the server's own modifier key events, so don't add layout-derived
+  // ones.  when the map already agrees we leave the normal path untouched.
+  if (serverID != 0 && useServerButtonForFakeKey(id) && getButton(id, group) != serverID) {
+    LOG_VERBOSE("using server button %03x for id %04x (key map disagrees)", serverID, id);
+    keys.push_back(Keystroke(serverID, true, false, 0));
+    updateModifierKeyState(serverID, oldActiveModifiers, m_activeModifiers);
+    ++m_keys[serverID];
+    ++m_syntheticKeys[serverID];
+    m_keyClientData[serverID] = 0;
+    m_serverKeys[serverID] = serverID;
+    fakeKeys(keys, 1);
+    return;
+  }
+
   const deskflow::KeyMap::KeyItem *keyItem =
-      m_keyMap.mapKey(keys, id, pollActiveGroup(), m_activeModifiers, getActiveModifiersRValue(), mask, false, lang);
+      m_keyMap.mapKey(keys, id, group, m_activeModifiers, getActiveModifiersRValue(), mask, false, lang);
 
   if (keyItem == nullptr) {
     // a media key won't be mapped on mac, so we need to fake it in a
@@ -853,6 +873,16 @@ bool KeyState::fakeKeyRepeat(KeyID id, KeyModifierMask mask, int32_t count, KeyB
   // get keys for key repeat
   Keystrokes keys;
   ModifierToKeys oldActiveModifiers = m_activeModifiers;
+
+  // repeat the server's physical button only if the down went through the same
+  // path (oldLocalID == serverID); otherwise fall through to the key map so the
+  // repeat stays on the button the down actually pressed.
+  if (serverID != 0 && oldLocalID == serverID && useServerButtonForFakeKey(id)) {
+    keys.push_back(Keystroke(serverID, true, true, 0));
+    fakeKeys(keys, count);
+    return true;
+  }
+
   const deskflow::KeyMap::KeyItem *keyItem =
       m_keyMap.mapKey(keys, id, pollActiveGroup(), m_activeModifiers, getActiveModifiersRValue(), mask, true, lang);
   if (keyItem == nullptr) {
@@ -1054,6 +1084,11 @@ void KeyState::addCombinationEntries()
       ++i;
     }
   }
+}
+
+bool KeyState::useServerButtonForFakeKey(KeyID) const
+{
+  return false;
 }
 
 void KeyState::fakeKeys(const Keystrokes &keys, uint32_t count)
